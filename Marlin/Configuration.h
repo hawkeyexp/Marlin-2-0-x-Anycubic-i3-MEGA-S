@@ -529,15 +529,15 @@
 // Above this temperature the heater will be switched off.
 // This can protect components from overheating, but NOT from shorts and failures.
 // (Use MINTEMP for thermistor short/failure protection.)
-#define HEATER_0_MAXTEMP 400
-#define HEATER_1_MAXTEMP 400
-#define HEATER_2_MAXTEMP 400
-#define HEATER_3_MAXTEMP 400
-#define HEATER_4_MAXTEMP 400
-#define HEATER_5_MAXTEMP 400
-#define HEATER_6_MAXTEMP 400
-#define HEATER_7_MAXTEMP 400
-#define BED_MAXTEMP      180
+#define HEATER_0_MAXTEMP 300
+#define HEATER_1_MAXTEMP 275
+#define HEATER_2_MAXTEMP 275
+#define HEATER_3_MAXTEMP 275
+#define HEATER_4_MAXTEMP 275
+#define HEATER_5_MAXTEMP 275
+#define HEATER_6_MAXTEMP 275
+#define HEATER_7_MAXTEMP 275
+#define BED_MAXTEMP      150
 
 //===========================================================================
 //============================= PID Settings ================================
@@ -716,7 +716,7 @@
 #endif
 
 #if ENABLED(KNUTWURST_CHIRON)
-  #define USE_ZMAX_PLUG
+  //#define USE_ZMAX_PLUG
 #endif
 
 //#define USE_YMAX_PLUG
@@ -775,8 +775,8 @@
     #define X_MIN_ENDSTOP_INVERTING true // set to true to invert the logic of the endstop.
     #define Y_MIN_ENDSTOP_INVERTING true // set to true to invert the logic of the endstop.
     #define Z_MIN_ENDSTOP_INVERTING false // set to true to invert the logic of the endstop.
-    #define X_MAX_ENDSTOP_INVERTING true // set to true to invert the logic of the endstop.
-    #define Y_MAX_ENDSTOP_INVERTING true // set to true to invert the logic of the endstop.
+    #define X_MAX_ENDSTOP_INVERTING false // set to true to invert the logic of the endstop.
+    #define Y_MAX_ENDSTOP_INVERTING false // set to true to invert the logic of the endstop.
     #define Z_MAX_ENDSTOP_INVERTING false // set to true to invert the logic of the endstop.
     #define Z_MIN_PROBE_ENDSTOP_INVERTING false // set to true to invert the logic of the endstop.
 #endif
@@ -797,22 +797,24 @@
  *          TMC5130, TMC5130_STANDALONE, TMC5160, TMC5160_STANDALONE
  * :['A4988', 'A5984', 'DRV8825', 'LV8729', 'L6470', 'L6474', 'POWERSTEP01', 'TB6560', 'TB6600', 'TMC2100', 'TMC2130', 'TMC2130_STANDALONE', 'TMC2160', 'TMC2160_STANDALONE', 'TMC2208', 'TMC2208_STANDALONE', 'TMC2209', 'TMC2209_STANDALONE', 'TMC26X', 'TMC26X_STANDALONE', 'TMC2660', 'TMC2660_STANDALONE', 'TMC5130', 'TMC5130_STANDALONE', 'TMC5160', 'TMC5160_STANDALONE']
  */
-#define X_DRIVER_TYPE  A4988
-#define Y_DRIVER_TYPE  A4988
-#define Z_DRIVER_TYPE  A4988
-//#define X2_DRIVER_TYPE A4988
-//#define Y2_DRIVER_TYPE A4988
-//#define Z2_DRIVER_TYPE A4988
-//#define Z3_DRIVER_TYPE A4988
-//#define Z4_DRIVER_TYPE A4988
-#define E0_DRIVER_TYPE A4988
-#define E1_DRIVER_TYPE A4988
-//#define E2_DRIVER_TYPE A4988
-//#define E3_DRIVER_TYPE A4988
-//#define E4_DRIVER_TYPE A4988
-//#define E5_DRIVER_TYPE A4988
-//#define E6_DRIVER_TYPE A4988
-//#define E7_DRIVER_TYPE A4988
+#if ENABLED(KNUTWURST_TMC)
+    #define X_DRIVER_TYPE  TMC2208_STANDALONE
+    #define Y_DRIVER_TYPE  TMC2208_STANDALONE
+    #define Z_DRIVER_TYPE  TMC2208_STANDALONE
+    #define E0_DRIVER_TYPE TMC2208_STANDALONE
+    #define E1_DRIVER_TYPE TMC2208_STANDALONE
+#else
+    #if ENABLED(KNUTWURST_MEGA_P)
+        #define X_DRIVER_TYPE  TMC2208_STANDALONE
+        #define Y_DRIVER_TYPE  TMC2208_STANDALONE
+    #else
+        #define X_DRIVER_TYPE  A4988
+        #define Y_DRIVER_TYPE  A4988
+    #endif
+    #define Z_DRIVER_TYPE  A4988
+    #define E0_DRIVER_TYPE A4988
+    #define E1_DRIVER_TYPE A4988
+#endif
 
 // Enable this feature if all enabled endstop pins are interrupt-capable.
 // This will remove the need to poll the interrupt pins, saving many CPU cycles.
@@ -1235,7 +1237,7 @@
 
 #if ENABLED(KNUTWURST_TFT_LEVELING)
     //#define NOZZLE_TO_PROBE_OFFSET { 0, 0, -17 } // Chiron Default Value!
-    #define NOZZLE_TO_PROBE_OFFSET { 0, 0, -14 } // Chiron Default Value!
+    #define NOZZLE_TO_PROBE_OFFSET { 0, 0, -16.8 }
 #endif
 
 #if NONE(KNUTWURST_BLTOUCH, KNUTWURST_TFT_LEVELING)
@@ -1297,7 +1299,7 @@
 #endif
 
 #if DISABLED(KNUTWURST_BLTOUCH)
-    #define Z_PROBE_LOW_POINT          -8 // Farthest distance below the trigger-point to go before stopping
+    #define Z_PROBE_LOW_POINT          -12 // Farthest distance below the trigger-point to go before stopping
 #endif
 
 
@@ -1531,6 +1533,8 @@
     #define X_BED_SIZE 215
     #define Y_BED_SIZE 215
     #define Z_MAX_POS 206
+    #define X_MAX_POS X_BED_SIZE
+    #define Y_MAX_POS Y_BED_SIZE
 #endif
 
 #if ANY(KNUTWURST_MEGA_S, KNUTWURST_MEGA_P)
@@ -1540,6 +1544,8 @@
     #define X_BED_SIZE 225
     #define Y_BED_SIZE 220
     #define Z_MAX_POS 210
+    #define X_MAX_POS X_BED_SIZE
+    #define Y_MAX_POS Y_BED_SIZE
 #endif
 
 #if ENABLED(KNUTWURST_MEGA_X)
@@ -1549,20 +1555,21 @@
     #define X_BED_SIZE 310
     #define Y_BED_SIZE 310
     #define Z_MAX_POS 305
+    #define X_MAX_POS X_BED_SIZE
+    #define Y_MAX_POS Y_BED_SIZE
 #endif
 
 #if ENABLED(KNUTWURST_CHIRON)
     #define X_MIN_POS -10
     #define Y_MIN_POS 0
     #define Z_MIN_POS 0
-    #define X_BED_SIZE 410
-    #define Y_BED_SIZE 410
-    #define Z_MAX_POS 453
+    #define X_BED_SIZE 400
+    #define Y_BED_SIZE 400
+    #define Z_MAX_POS 455
+    #define X_MAX_POS X_BED_SIZE +10
+    #define Y_MAX_POS Y_BED_SIZE +10
 #endif
 
-// Travel limits (mm) after homing, corresponding to endstop positions.
-#define X_MAX_POS X_BED_SIZE
-#define Y_MAX_POS Y_BED_SIZE
 
 /**
  * Software Endstops

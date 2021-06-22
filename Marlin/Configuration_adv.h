@@ -559,7 +559,7 @@
       #endif
       
       #if ENABLED(KNUTWURST_CHIRON)
-          #define Z2_USE_ENDSTOP      _ZMAX_
+          #define Z2_USE_ENDSTOP      _XMAX_
       #endif
 
       #define Z2_ENDSTOP_ADJUSTMENT   0
@@ -635,8 +635,9 @@
 #define Z_HOME_BUMP_MM 2
 #define HOMING_BUMP_DIVISOR { 2, 2, 4 }  // Re-Bump Speed Divisor (Divides the Homing Feedrate)
 //#define QUICK_HOME                     // If homing includes X and Y, do a diagonal move initially
-#define HOMING_BACKOFF_MM { 2, 2, 0 }  // (mm) Move away from the endstops after homing
-
+#if DISABLED(KNUTWURST_CHIRON)
+    #define HOMING_BACKOFF_MM { 2, 2, 0 }  // (mm) Move away from the endstops after homing
+#endif
 // When G28 is called, this option will make Y home before X
 //#define HOME_Y_BEFORE_X
 
@@ -1713,8 +1714,10 @@
  *
  * Override the default value based on the driver type set in Configuration.h.
  */
-#define MINIMUM_STEPPER_POST_DIR_DELAY 200
-#define MINIMUM_STEPPER_PRE_DIR_DELAY 200
+#if NONE(KNUTWURST_MEGA_P, KNUTWURST_TMC)
+  //#define MINIMUM_STEPPER_POST_DIR_DELAY 200
+  //#define MINIMUM_STEPPER_PRE_DIR_DELAY 200
+#endif
 
 /**
  * Minimum stepper driver pulse width (in µs)
@@ -1727,8 +1730,9 @@
  *
  * Override the default value based on the driver type set in Configuration.h.
  */
-#define MINIMUM_STEPPER_PULSE 1
-
+#if NONE(KNUTWURST_MEGA_P, KNUTWURST_TMC)
+    //#define MINIMUM_STEPPER_PULSE 1
+#endif
 /**
  * Maximum stepping rate (in Hz) the stepper driver allows
  *  If undefined, defaults to 1MHz / (2 * MINIMUM_STEPPER_PULSE)
@@ -1754,7 +1758,7 @@
 
 // @section hidden
 
-
+/*
 #if ENABLED(KNUTWURST_CHIRON)
     #if ENABLED(SDSUPPORT)
       #define BLOCK_BUFFER_SIZE 8 // SD,LCD,Buttons take more memory, block buffer needs to be smaller
@@ -1767,6 +1771,7 @@
     #define TX_BUFFER_SIZE 0
     #define RX_BUFFER_SIZE 64
 #else
+*/
     // The number of linear motions that can be in the plan at any give time.
     // THE BLOCK_BUFFER_SIZE NEEDS TO BE A POWER OF 2 (e.g. 8, 16, 32) because shifts and ors are used to do the ring-buffering.
     #if ENABLED(SDSUPPORT)
@@ -1795,7 +1800,7 @@
     // To use flow control, set this buffer size to at least 1024 bytes.
     // :[0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
     #define RX_BUFFER_SIZE 256
-#endif
+//#endif
 
 #if RX_BUFFER_SIZE >= 1024
   // Enable to have the controller send XON/XOFF control characters to

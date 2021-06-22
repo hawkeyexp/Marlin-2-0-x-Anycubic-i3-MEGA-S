@@ -28,18 +28,23 @@
 #include "../gcode/parser.h"
 #include "../feature/e_parser.h"
 #include "../feature/pause.h"
-#include "../feature/bedlevel/bedlevel.h"
+#include "../module/configuration_store.h"
+
+#if ENABLED(KNUTWURST_TFT_LEVELING)
+    #include "../feature/bedlevel/bedlevel.h"
+    #include "../feature/bedlevel/abl/abl.h"
+#endif
+
 #include "../libs/buzzer.h"
 #include "../module/planner.h"
 #include "../module/printcounter.h"
 #include "../module/temperature.h"
 #include "../module/motion.h"
-#include "../module/configuration_store.h"
 #include "../module/probe.h"
 #include "../sd/cardreader.h"
 
 #ifdef ANYCUBIC_TOUCHSCREEN
-#include "anycubic_touchscreen.h"
+#include "./anycubic_touchscreen.h"
 #include "HardwareSerial.h"
 
 char _conv[8];
@@ -72,6 +77,16 @@ char _conv[8];
     constexpr float dpo[] = NOZZLE_TO_PROBE_OFFSET;
     probe.offset.z = dpo[Z_AXIS];
   #endif
+  }
+
+  void setAxisPosition_mm(const float position, const axis_t axis, const feedRate_t feedrate/*=0*/) {
+    // Get motion limit from software endstops, if any
+    float min, max;
+    max = soft_endstop.max[axis];
+    min = soft_endstop.min[axis];
+  
+    current_position[axis] = constrain(position, min, max);
+    line_to_current_position(feedrate ?: 60);
   }
 
   void initializeGrid() {
@@ -114,7 +129,7 @@ char _conv[8];
 
     for (uint8_t x = 0; x < GRID_MAX_POINTS_X; x++) {
       for (uint8_t y = 0; y < GRID_MAX_POINTS_Y; y++) {
-        z_values[x][y] = float(-2.0);
+        z_values[x][y] = float(-1.0);
       }
     }
     refresh_bed_level();
@@ -638,7 +653,7 @@ void AnycubicTouchscreenClass::HandleSpecialMenu()
   || (strcasestr_P(currentTouchscreenSelection, PSTR(SM_SAVE_EEPROM_S)) != NULL))
   {
     SERIAL_ECHOLNPGM("Special Menu: Save EEPROM");
-    queue.inject_P(PSTR("M500"));
+    settings.save(); // M500
     buzzer.tone(105, 1108);
     buzzer.tone(210, 1661);
   }
@@ -646,9 +661,9 @@ void AnycubicTouchscreenClass::HandleSpecialMenu()
   || (strcasestr_P(currentTouchscreenSelection, PSTR(SM_LOAD_DEFAULTS_S)) != NULL))
   {
     SERIAL_ECHOLNPGM("Special Menu: Load FW Defaults");
-    queue.inject_P(PSTR("M502"));
+    settings.reset(); // M502
     #if ENABLED(KNUTWURST_TFT_LEVELING)
-        initializeGrid();
+      initializeGrid();
     #endif
     buzzer.tone(105, 1661);
     buzzer.tone(210, 1108);
@@ -716,12 +731,24 @@ void AnycubicTouchscreenClass::HandleSpecialMenu()
     }
   #endif
 
-  #if EITHER(KNUTWURST_BLTOUCH, KNUTWURST_TFT_LEVELING)
+  #if ENABLED(KNUTWURST_BLTOUCH)
     else if ((strcasestr_P(currentTouchscreenSelection, PSTR(SM_BLTOUCH_L)) != NULL)
     || (strcasestr_P(currentTouchscreenSelection, PSTR(SM_BLTOUCH_S)) != NULL))
     {
       SERIAL_ECHOLNPGM("Special Menu: BLTouch Leveling");
       queue.inject_P(PSTR("G28\nG29\nM500\nG90\nM300 S440 P200\nM300 S660 P250\nM300 S880 P300\nG1 Z30 F4000\nG1 X0 F4000\nG91\nM84"));
+      buzzer.tone(105, 1108);
+      buzzer.tone(210, 1661);
+    }
+  #endif
+
+  #if ENABLED(KNUTWURST_TFT_LEVELING)
+    else if ((strcasestr_P(currentTouchscreenSelection, PSTR(SM_RESETLV_L)) != NULL)
+    || (strcasestr_P(currentTouchscreenSelection, PSTR(SM_RESETLV_S)) != NULL))
+    {
+      SERIAL_ECHOLNPGM("Special Menu: initializeGrid()");
+      initializeGrid();
+      settings.save();
       buzzer.tone(105, 1108);
       buzzer.tone(210, 1661);
     }
@@ -979,7 +1006,7 @@ void AnycubicTouchscreenClass::PrintList()
       break;
 
       #if NONE(KNUTWURST_BLTOUCH, KNUTWURST_TFT_LEVELING)
-          case 4: // Page 2
+          case 4: // Page 2 for Manual Mesh Bed Level
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_S);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_L);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_MESH_MENU_S);
@@ -991,12 +1018,25 @@ void AnycubicTouchscreenClass::PrintList()
             break;
       #endif
 
-      #if EITHER(KNUTWURST_BLTOUCH, KNUTWURST_TFT_LEVELING)
-          case 4: // Page 2
+      #if ENABLED(KNUTWURST_BLTOUCH)
+          case 4: // Page 2 for BLTouch
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_S);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_L);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_BLTOUCH_S);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_BLTOUCH_L);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_HOTEND_S);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_HOTEND_L);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_BED_S);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_BED_L);
+          break;
+      #endif
+
+      #if ENABLED(KNUTWURST_TFT_LEVELING)
+          case 4: // Page 2 for Chiron ABL
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_S);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_EZLVL_MENU_L);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_RESETLV_S);
+            HARDWARE_SERIAL_PROTOCOLLNPGM(SM_RESETLV_L);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_HOTEND_S);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_HOTEND_L);
             HARDWARE_SERIAL_PROTOCOLLNPGM(SM_PID_BED_S);
@@ -1184,7 +1224,7 @@ void AnycubicTouchscreenClass::CheckSDCardChange()
 
 void AnycubicTouchscreenClass::CheckHeaterError()
 {
-  if ((thermalManager.degHotend(0) < 5) || (thermalManager.degHotend(0) > 290))
+  if ((thermalManager.degHotend(0) < 5) || (thermalManager.degHotend(0) > 300))
   {
     if (HeaterCheckCount > 60000)
     {
@@ -1703,8 +1743,10 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
               unsigned int tempvalue;
               if (CodeSeen('S'))
               {
-                tempvalue = constrain(CodeValue(), 0, 275);
-                thermalManager.setTargetHotend(tempvalue, 0);
+                tempvalue = constrain(CodeValue(), 0, 260);
+                if(thermalManager.degTargetHotend(0) <= 260) {
+                    thermalManager.setTargetHotend(tempvalue, 0); // do not set Temp from TFT if it is set via gcode
+                }
               }
               else if ((CodeSeen('C')) && (!planner.movesplanned()))
               {
@@ -1712,7 +1754,7 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
                 {
                   queue.inject_P(PSTR("G1 Z10")); //RASE Z AXIS
                 }
-                tempvalue = constrain(CodeValue(), 0, 275);
+                tempvalue = constrain(CodeValue(), 0, 260);
                 thermalManager.setTargetHotend(tempvalue, 0);
               }
             }
@@ -1968,45 +2010,44 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
             #if ENABLED(KNUTWURST_TFT_LEVELING)
               case 29: // A29 bed grid read
               {
-                if(CodeSeen('X'))
-                {
-                  x = CodeValue();
-                }
-                
-                if(CodeSeen('Y'))
-                {
-                  y = CodeValue();
-                }
-                
-                float Zvalue = z_values[x][y];
-                Zvalue = Zvalue * 100;
+                int mx, my;
 
-                refresh_bed_level();
-                set_bed_leveling_enabled(true);
+                if(CodeSeen('X')) { mx = CodeValueInt(); }
+                if(CodeSeen('Y')) { my = CodeValueInt(); }
+                
+                float Zvalue = z_values[mx][my];
+                Zvalue = Zvalue * 100;
 
                 if ((!planner.movesplanned()) && (TFTstate != ANYCUBIC_TFT_STATE_SDPAUSE) && (TFTstate != ANYCUBIC_TFT_STATE_SDOUTAGE))
                 {
                   if (!all_axes_known())
                   {
-                      queue.enqueue_now_P(PSTR("G28"));
-                  } else {
-                      destination.z = float(5.0);
-                      prepare_line_to_destination();
-
-                      feedrate_mm_s = MMM_TO_MMS(3600.0f);
-                    
-                      destination.x = _GET_MESH_X(x);
-                      destination.y = _GET_MESH_Y(y);
-                      prepare_line_to_destination();
-
-                      destination.z = float(EXT_LEVEL_HIGH);
-                      prepare_line_to_destination();
+                      queue.inject_P(PSTR("G28\n"));
+                      /*
+                         set_axis_is_at_home(X_AXIS);
+                         sync_plan_position();
+                         set_axis_is_at_home(Y_AXIS);
+                         sync_plan_position(); 
+                         set_axis_is_at_home(Z_AXIS);
+                         sync_plan_position();
+                         report_current_position();
+                      */
+                    } else {
+                      // Go up before moving
+                      //SERIAL_ECHOLNPGM("Z Up");
+                      setAxisPosition_mm(5.0,Z);
+                      //report_current_position();
+                      setAxisPosition_mm(_GET_MESH_X(mx),X);
+                      //report_current_position();
+                      setAxisPosition_mm(_GET_MESH_Y(my),Y);
+                      //report_current_position();
+                      setAxisPosition_mm(EXT_LEVEL_HIGH,Z);
 
                       report_current_position();
                   }
                 }
                 HARDWARE_SERIAL_PROTOCOLPGM("A29V ");
-                HARDWARE_SERIAL_PROTOCOL_F(float(Zvalue), 2);
+                HARDWARE_SERIAL_PROTOCOL_F(Zvalue, 2);
                 HARDWARE_SERIAL_ENTER();
               }
               break;   
@@ -2019,12 +2060,13 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
                   HARDWARE_SERIAL_ENTER();
                 }
                 if(CodeSeen('S') ) {
-                  queue.enqueue_now_P(PSTR("G28\nG29"));
+                  queue.enqueue_now_P(PSTR("G28\nG29\nM500\nG90\nM300 S440 P200\nM300 S660 P250\nM300 S880 P300\nG1 Z30 F4000\nG1 X0 F4000\nG91\nM84"));
                 }
               break;
               case 31: // A31 z-offset
                   if(CodeSeen('S'))  // set
                   {
+                    //soft_endstops_enabled = false;  // disable endstops
                     float value = constrain(CodeValue(),-1.0,1.0);
                     probe.offset.z += value;
                     for (x = 0; x < GRID_MAX_POINTS_X; x++) {
@@ -2067,17 +2109,11 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
               break;      
               case 34: //a34 bed grid write
               {
-                if(CodeSeen('X'))
-                {
-                  x = constrain(CodeValue(),0,GRID_MAX_POINTS_X);
-                }
-                if(CodeSeen('Y'))
-                {
-                  y = constrain(CodeValue(),0,GRID_MAX_POINTS_Y);
-                }
+                if(CodeSeen('X')) { x = constrain(CodeValueInt(),0,GRID_MAX_POINTS_X); }
+                if(CodeSeen('Y')) { y = constrain(CodeValueInt(),0,GRID_MAX_POINTS_Y); }
+                
                 if(CodeSeen('V'))
                 {
-                  //z_values[x][y] = (float)constrain(CodeValue()/100,-10,10);
                   float new_z_value = float(constrain(CodeValue()/100,-10,10));
                   z_values[x][y] = new_z_value;
                   set_bed_leveling_enabled(true);
@@ -2099,7 +2135,7 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
               }
               break;  
               case 35: //RESET AUTOBED DATE //M1000
-                  initializeGrid();
+                  //initializeGrid();  //done via special menu
               break;
               case 36: // A36 auto leveling (New Anycubic TFT)
                 if( (planner.movesplanned()) || (card.isPrinting()) ) {
@@ -2110,7 +2146,7 @@ void AnycubicTouchscreenClass::GetCommandFromTFT()
                   HARDWARE_SERIAL_ENTER();
                 }
                 if(CodeSeen('S') ) {
-                  queue.enqueue_now_P(PSTR("G28\nG29"));
+                  queue.enqueue_now_P(PSTR("G28\nG29\nM500\nG90\nM300 S440 P200\nM300 S660 P250\nM300 S880 P300\nG1 Z30 F4000\nG1 X0 F4000\nG91\nM84"));
                 }
             #endif
 

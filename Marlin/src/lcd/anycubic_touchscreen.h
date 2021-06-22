@@ -21,9 +21,20 @@
 #ifndef anycubic_touchscreen_h
 #define anycubic_touchscreen_h
 
-#include <stdio.h>
-#include "../inc/MarlinConfig.h"
-#include "../module/configuration_store.h"
+//#include <stdio.h>
+//#include "../inc/MarlinConfig.h"
+//#include "../module/configuration_store.h"
+
+#include "./src/inc/MarlinConfigPre.h"
+#include "./src/feature/bedlevel/bedlevel.h"
+#include "./src/feature/bedlevel/abl/abl.h"
+#include "src/module/probe.h"
+
+
+enum axis_t     : uint8_t { X, Y, Z, X2, Y2, Z2, Z3, Z4 };
+enum extruder_t : uint8_t { E0, E1, E2, E3, E4, E5, E6, E7 };
+void setAxisPosition_mm(const float, const axis_t, const feedRate_t=0);
+void initializeGrid();
 
 char *itostr2(const uint8_t &x);
 
@@ -37,7 +48,11 @@ char *ftostr32(const float &);
 #define MSG_MY_VERSION CUSTOM_BUILD_VERSION
 #define MAX_PRINTABLE_FILENAME_LEN 30
 
-#define FILAMENT_RUNOUT_PIN 19
+#if ENABLED(KNUTWURST_CHIRON)
+  #define FILAMENT_RUNOUT_PIN 33
+#else
+  #define FILAMENT_RUNOUT_PIN 19
+#endif
 
 #define ANYCUBIC_TFT_STATE_IDLE 0
 #define ANYCUBIC_TFT_STATE_SDPRINT 1
@@ -82,6 +97,8 @@ char *ftostr32(const float &);
 #define SM_Z_DN_001_S         "<ZDN001>"
 #define SM_BLTOUCH_L          "<Start Auto Leveling>"
 #define SM_BLTOUCH_S          "<BLTCH>"
+#define SM_RESETLV_L          "<Reset Level Grid>"
+#define SM_RESETLV_S          "<RSTLV>"
 #define SM_PAUSE_L            "<Fil. Change Pause>"
 #define SM_PAUSE_S            "<PAUSE>"
 #define SM_RESUME_L           "<Fil. Change Resume>"
@@ -157,6 +174,8 @@ char *ftostr32(const float &);
 #define SM_Z_DN_001_S         "<ZDOWN~3.GCO"
 #define SM_BLTOUCH_L          "<Start AutoLeveling>.gcode"
 #define SM_BLTOUCH_S          "<BLTOU~1.GCO"
+#define SM_RESETLV_L          "<Reset Level Grid>  .gcode"
+#define SM_RESETLV_S          "<RSTLV~1.GCO>"
 #define SM_PAUSE_L            "<Fil. Change Pause> .gcode"
 #define SM_PAUSE_S            "<FILCH~2.GCO"
 #define SM_RESUME_L           "<Fil. Change Resume>.gcode"
